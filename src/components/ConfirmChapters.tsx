@@ -1,8 +1,8 @@
 "use client"
 
 import { Chapter, Course, Unit } from "@prisma/client"
-import type { FC } from "react"
-import ChapterCard from "./ChapterCard"
+import React, { useState } from "react"
+import ChapterCard, { ChapterCardHandler } from "./ChapterCard"
 import { Separator } from "./ui/separator"
 import Link from "next/link"
 import { Button, buttonVariants } from "./ui/button"
@@ -16,7 +16,26 @@ type ConfirmChaptersProps = {
   }
 }
 
-const ConfirmChapters: FC<ConfirmChaptersProps> = ({ course }) => {
+const ConfirmChapters: React.FC<ConfirmChaptersProps> = ({ course }) => {
+  const chapterRefs: Record<string, React.RefObject<ChapterCardHandler>> = {}
+  // detect overall chapters api call finished.
+  const [completedChapters, setCompletedChapters] = useState<Set<string>>(
+    new Set()
+  )
+  const [loading, setLoading] = React.useState(false)
+  const totalChaptersCount = React.useMemo(() => {
+    return course.units.reduce((acc, unit) => {
+      return acc + unit.chapters.length
+    }, 0)
+  }, [course.units])
+
+  course.units.forEach((unit) => {
+    unit.chapters.forEach((chapter) => {
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      chapterRefs[chapter.id] = React.useRef(null) // ref for each chapter
+    })
+  })
+
   return (
     <div className="w-full mt-4">
       {course.units.map((unit, unitIndex) => {
@@ -30,6 +49,7 @@ const ConfirmChapters: FC<ConfirmChaptersProps> = ({ course }) => {
               {unit.chapters.map((chapter, chapterIndex) => {
                 return (
                   <ChapterCard
+                    ref={chapterRefs[chapter.id]}
                     key={chapter.id}
                     chapter={chapter}
                     chapterIndex={chapterIndex}
@@ -57,7 +77,13 @@ const ConfirmChapters: FC<ConfirmChaptersProps> = ({ course }) => {
           <Button
             type="button"
             className="ml-4 font-semibold"
-            onClick={() => {}}
+            disabled={loading}
+            onClick={() => {
+              setLoading(true)
+              Object.values(chapterRefs).forEach((ref) => {
+                ref.current?.triggerLoad()
+              })
+            }}
           >
             Generate
             <ChevronRight className="h-4 w-4 ml-2" strokeWidth={4} />
